@@ -1,0 +1,98 @@
+START
+
+INPUT type, sourceAccountId, amount, destinationAccountId, currentTime
+
+IF type != "deposit" AND type != "withdrawal" AND type != "transfer" THEN
+    OUTPUT failure("Invalid transaction type")
+    END
+END IF
+
+sourceAccount = findAccount(sourceAccountId)
+
+IF sourceAccount = NULL THEN
+    OUTPUT failure("Source account does not exist")
+    END
+END IF
+
+IF amount is not a number OR amount <= 0 THEN
+    OUTPUT failure("Amount must be greater than zero")
+    END
+END IF
+
+IF type = "transfer" THEN
+    destinationAccount = findAccount(destinationAccountId)
+
+    IF destinationAccount = NULL THEN
+        OUTPUT failure("Destination account does not exist")
+        END
+    END IF
+
+    IF sourceAccountId = destinationAccountId THEN
+        OUTPUT failure("Cannot transfer to the same account")
+        END
+    END IF
+END IF
+
+IF type = "withdrawal" OR type = "transfer" THEN
+
+    IF amount > sourceAccount.balance THEN
+        OUTPUT failure("Insufficient funds")
+        END
+    END IF
+
+    // Prune stale withdrawal timestamps, then keep the pruned list
+    SET sourceAccount.withdrawalTimestamps = FILTER sourceAccount.withdrawalTimestamps
+        WHERE timestamp >= currentTime - 10 seconds
+    SET recentWithdrawals = sourceAccount.withdrawalTimestamps
+
+    IF type = "withdrawal" AND LENGTH(recentWithdrawals) >= 3 THEN
+        OUTPUT failure("Too many withdrawals in 10 seconds")
+        END
+    END IF
+
+    IF sourceAccount.transactionHistory is not empty THEN
+        SET averageAmount = AVERAGE(transaction.amount
+            FOR EACH transaction IN sourceAccount.transactionHistory
+            WHERE transaction.successful = TRUE)
+
+        IF amount >= averageAmount * 5 THEN
+            OUTPUT failure("Transaction flagged as suspicious")
+            END
+        END IF
+    END IF
+
+END IF
+
+SET transaction = createTransaction(type, amount, currentTime)
+
+IF type = "deposit" THEN
+    SET sourceAccount.balance = sourceAccount.balance + amount
+
+ELSE IF type = "withdrawal" THEN
+    SET sourceAccount.balance = sourceAccount.balance - amount
+    APPEND currentTime TO sourceAccount.withdrawalTimestamps
+
+ELSE IF type = "transfer" THEN
+    SET sourceAccount.balance = sourceAccount.balance - amount
+    SET destinationAccount.balance = destinationAccount.balance + amount
+
+END IF
+
+APPEND transaction TO sourceAccount.transactionHistory
+
+IF type = "transfer" THEN
+    SET incomingTransaction = createTransaction("deposit", amount, currentTime)
+    APPEND incomingTransaction TO destinationAccount.transactionHistory
+END IF
+
+SET sourceAccount.averageTransactionAmount = AVERAGE(transaction.amount
+    FOR EACH transaction IN sourceAccount.transactionHistory
+    WHERE transaction.successful = TRUE)
+
+IF type = "transfer" THEN
+    OUTPUT success(transaction, sourceAccount.balance, destinationAccount.balance)
+ELSE
+    OUTPUT success(transaction, sourceAccount.balance)
+END IF
+
+END

@@ -15,3 +15,12 @@ function success(transaction: object, sourceBalance: number, destinationBalance?
   }
   return result;
 }
+
+function createTransaction(type: string, amount: number, timestamp: number) {
+  return {
+    type,
+    amount,
+    timestamp,
+    successful: true,
+  };
+}

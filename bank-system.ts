@@ -3,6 +3,7 @@ const MAX_WITHDRAWALS_IN_WINDOW: number = 3;
 const SUSPICIOUS_MULTIPLIER: number = 5;
 
 type Account = {
+  id: string;
   balance: number;
   withdrawalTimestamps: number[];
   transactionHistory: { successful: boolean; amount: number }[];
@@ -129,4 +130,108 @@ function processTransaction(
   }
 
   return success(transaction, sourceAccount.balance);
+}
+
+
+module.exports = { processTransaction };
+
+async function runInteractive() {
+  const readline = require("readline/promises");
+  const accounts = new Map([
+    ["alice", {
+      id: "alice",
+      balance: 1000,
+      withdrawalTimestamps: [],
+      transactionHistory: [],
+      averageTransactionAmount: 0,
+    }],
+    ["bob", {
+      id: "bob",
+      balance: 500,
+      withdrawalTimestamps: [],
+      transactionHistory: [],
+      averageTransactionAmount: 0,
+    }],
+  ]);
+
+  const isTerminal = process.stdin.isTTY;
+  let readlineInterface = null;
+  let scriptedAnswers: string[] = [];
+
+  if (isTerminal) {
+    readlineInterface = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+  } else {
+    const input = await new Promise<string>((resolve) => {
+      let data = "";
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", (chunk) => { data += chunk; });
+      process.stdin.on("end", () => resolve(data));
+    });
+    scriptedAnswers = input.split(/\r?\n/);
+  }
+
+  const ask = (question: string): Promise<string> => {
+    if (!isTerminal) {
+      process.stdout.write(question);
+      return Promise.resolve(scriptedAnswers.shift() || "");
+    }
+    return readlineInterface.question(question);
+  };
+  const findAccount = (accountId: string): Account | null => accounts.get(accountId) || null;
+
+  console.log("Bank account manager");
+  console.log("Available accounts: alice, bob");
+
+  try {
+    while (true) {
+      console.log("\n1. View account\n2. Make transaction\n3. Exit");
+      const choice = (await ask("Choose an option: ")).trim();
+
+      if (choice === "1") {
+        const accountId = (await ask("Account ID: ")).trim();
+        const account = findAccount(accountId);
+        if (!account) {
+          console.log("Account does not exist.");
+          continue;
+        }
+        console.log(JSON.stringify({
+          id: account.id,
+          balance: account.balance,
+          transactionHistory: account.transactionHistory,
+        }, null, 2));
+      } else if (choice === "2") {
+        const type = (await ask("Transaction type (deposit, withdrawal, transfer): ")).trim();
+        const sourceAccountId = (await ask("Source account ID: ")).trim();
+        const amount = Number((await ask("Amount: ")).trim());
+        let destinationAccountId = null;
+
+        if (type === "transfer") {
+          destinationAccountId = (await ask("Destination account ID: ")).trim();
+        }
+
+        const result = processTransaction(
+          type,
+          sourceAccountId,
+          amount,
+          destinationAccountId!,
+          Date.now(),
+          findAccount
+        );
+        console.log(JSON.stringify(result, null, 2));
+      } else if (choice === "3") {
+        break;
+      } else {
+        console.log("Invalid option.");
+      }
+    }
+  } finally {
+    if (readlineInterface) readlineInterface.close();
+  }
+}
+
+if (require.main === module) {
+  runInteractive();
 }

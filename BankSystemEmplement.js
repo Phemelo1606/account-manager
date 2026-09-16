@@ -1,23 +1,3 @@
-/**
- * Processes a deposit, withdrawal, or transfer against in-memory account records.
- *
- * Assumed shapes (adjust to match your real data layer):
- *   Account: {
- *     id: string,
- *     balance: number,
- *     withdrawalTimestamps: number[],   // ms timestamps of past withdrawals
- *     transactionHistory: Transaction[]
- *   }
- *   Transaction: {
- *     type: "deposit" | "withdrawal" | "transfer",
- *     amount: number,
- *     timestamp: number,
- *     successful: boolean
- *   }
- *
- * `findAccount` is assumed to be an injected/imported lookup function:
- *   findAccount(accountId) => Account | null
- */
 
 const WITHDRAWAL_WINDOW_MS = 10 * 1000; // 10 seconds
 const MAX_WITHDRAWALS_IN_WINDOW = 3;

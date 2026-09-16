@@ -7,3 +7,6 @@ Here are the basic rules:
     Too Fast (Rapid Withdrawals): If someone tries to take money out of an account more than 3 times in 10 seconds, the system assumes it might be a hacker or a bot and blocks it.
 
     Unusual Spending Spikes: The system remembers your average transaction size. If you suddenly try to move an amount that is 5 times larger than your normal average, the system flags it as suspicious and blocks the transaction.
+
+
+We are going to create step by step algos first, then the pseudocode. Then we can do the actual coding.
